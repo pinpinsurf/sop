@@ -415,9 +415,9 @@ function viewRun(){
       .map(function(E){
         return '<button class="ex'+(d.exitType===E[0]?" on":"")+'" data-act="exit" data-v="'+E[0]+'" data-p="'+(E[2]===null?"":E[2])+'">'+E[1]+'</button>';
       }).join("")+'</div>');
-    b+='<div class="row">'+fld("出場價",inp("exitPrice",d.exitPrice))+fld("出場時間",inp("exitTime",d.exitTime,{text:1,ph:"09:34"}))+'</div>';
     b+='<div class="row">'+fld("進場時間",inp("entryTime",d.entryTime,{text:1,ph:"09:18"}))+
       fld("出場時間",inp("exitTime",d.exitTime,{text:1,ph:"09:34"}))+'</div>';
+    b+=fld("出場價",inp("exitPrice",d.exitPrice));
     var hm=heldMins(d);
     if(hm!==null)b+='<div class="note">持倉 '+hm+' 分鐘</div>';
 
@@ -474,7 +474,7 @@ function viewRun(){
     if(num(d.postExitPrice)===null)miss.push("出場後最遠價");
     b+= miss.length?'<div class="verdict fail">還缺：'+miss.join("、")+'。空著會讓 '+st.target+' 筆統計失真。</div>'
       :primary("go","結算",' data-v="1"');
-    h+=card("07","出場","MFE / MAE 填價位就好，會自動換算成點數。這兩個數字比損益更重要。",b);
+    h+=card("07","出場","價位填數字就好，方向和點數會自動換算。先選怎麼出的，下面才知道要問你哪一格。",b);
   }
 
   if(id==="review")h+=viewReview();
