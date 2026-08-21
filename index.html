@@ -450,6 +450,9 @@ function viewRun(){
     var b='<div class="clock"><span>'+st.winStart+'</span><div class="bar"></div><span>'+st.winEnd+'</span></div>';
     if(gap!==null)b+='<div class="note'+(gap<10?" alarm":"")+'">窗口關閉到 '+st.forceClose+' 強制平倉，最晚進場也還有 '+gap+' 分鐘'+
       (gap<10?"——太短，這筆幾乎沒有時間走完":"")+'</div>';
+    b+='<div class="edges" style="margin-bottom:16px">'+EDGES.map(function(e){
+      return '<div class="edg" style="cursor:default"><b>'+e.l+'</b><em>'+(d[e.k]||"未填")+'</em></div>';
+    }).join("")+'</div>';
     b+='<div class="choices">'+
       '<button class="ch" data-act="go" data-v="1"><b>'+st.winEnd+' 前出現突破</b><em>繼續判定</em></button>'+
       '<button class="ch" data-act="closeday" data-v="'+st.winEnd+' 前沒有突破"><b>沒有突破</b><em>今日封盤</em></button>'+
@@ -478,9 +481,9 @@ function viewRun(){
 
   if(id==="orders"){
     var locks=[
-      ["sl","停損停利二擇一："+(slPrice===null?"—":slPrice)+" ／ "+(tpPrice===null?"—":tpPrice)],
-      ["tp","子單設為母單成交後才生效（空手時不會誤開反向倉）"],
-      ["entry","觸價進場母單 "+(entry===null?"—":entry)+" 已送出"],
+      ["entry","觸價市價買入單已設，觸發價 "+(entry===null?"—":entry)],
+      ["sl","觸發成交後，設二擇一：停損 "+(slPrice===null?"—":slPrice)+" ／ 停利 "+(tpPrice===null?"—":tpPrice)],
+      ["tp","二擇一確認送出，兩腳都在委託裡"],
       ["time",st.timeStopMode==="智能單"?(st.forceClose+" 定時平倉單已設"):(st.forceClose+" 鬧鐘已設")]];
     var b='<div class="locks">'+locks.map(function(L){
       return '<button class="lock'+(d.orders[L[0]]?" on":"")+'" data-act="lock" data-v="'+L[0]+'">'+
@@ -492,7 +495,7 @@ function viewRun(){
       b+='<div class="choices"><button class="ch warn" data-act="force" data-v="'+vs.join(",")+'">'+
         '<b>沒掛齊就進場了</b><em>會記違規，照實記</em></button></div>';
     }
-    h+=card("06","掛單確認","先設保護，再送進場，最後設時限。空手時獨立掛停損會開出反向倉——子單一定要綁在母單下面。",b);
+    h+=card("06","掛單確認","觸價進場 → 成交後補上二擇一 → 設時限。中間那段空窗是裸的，成交後第一件事就是把保護補上。",b);
   }
 
   if(id==="exit"){
