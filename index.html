@@ -88,6 +88,8 @@ input.big{font-size:26px;padding:12px}
 .mrow:last-child{border-bottom:0}
 .mrow span{color:var(--mute)}
 .mrow.big b{font-size:22px;color:var(--slate)}
+.mrow.warnrow b{color:var(--warn)}
+.mrow.warnrow span{color:var(--warn)}
 .locks{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
 .lock{display:flex;gap:11px;align-items:center;padding:14px;border:1px solid var(--line);background:var(--panel);font-family:inherit;font-size:14px;color:var(--mute);cursor:pointer;text-align:left;width:100%}
 .lock.on{color:var(--ink);border-color:var(--slate)}
@@ -141,12 +143,15 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--slate);outline-
 "use strict";
 
 var KEY = "breakout-sop-v2";
+var VER = "v11";
 
 var DEFAULTS = {
   contract: "小台", pointValue: 50, atrMin: 50,
-  slPoints: 60, tpPoints: 100, costPerRound: 100,
+  slPoints: 60, tpPoints: 100,
   target: 80, timeStopMode: "智能單",
   winStart: "09:15", winEnd: "09:45", forceClose: "10:00",
+  startCapital: 200000, feePerSide: 35, taxRate: 0.00002, refIndex: 45000,
+  initMargin: 175250, maintMargin: 134500,
   lastBackup: null, lastBackupN: 0
 };
 
@@ -186,6 +191,7 @@ function blankDraft(st){
     orders:{entry:false,sl:false,tp:false,time:false},
     entryTime:"",exitType:"",exitPrice:"",exitTime:"",
     mfePrice:"",maePrice:"",postExitPrice:"",
+    marginCall:false,
     note:"",violations:[],outcome:null,skipReason:""};
 }
 
@@ -218,6 +224,43 @@ function heldMins(r){
   var m2=parseInt(b[0],10)*60+parseInt(b[1],10);
   if(isNaN(m1)||isNaN(m2))return null;
   return m2-m1;
+}
+/** 單筆真實成本：手續費兩邊 + 期交稅（各邊依當時契約金額計） */
+function costOf(r){
+  var st=S.settings;
+  if(r.outcome==="skip")return 0;
+  var e=num(r.entry),x=num(r.exitPrice);
+  var c=(st.feePerSide||0)*2;
+  if(e!==null)c+=Math.round(e*st.pointValue*(st.taxRate||0));
+  if(x!==null)c+=Math.round(x*st.pointValue*(st.taxRate||0));
+  return c;
+}
+/** 這一筆的淨損益（元） */
+function netMoney(r){
+  if(r.outcome==="skip")return 0;
+  return pnlPoints(r)*S.settings.pointValue-costOf(r);
+}
+/** 以參考指數估的來回成本，用於打平勝率 */
+function estCost(ref){
+  var st=S.settings;
+  var i=ref||st.refIndex||45000;
+  return (st.feePerSide||0)*2+Math.round(i*st.pointValue*(st.taxRate||0))*2;
+}
+/** 資金曲線：每一局結束後的資金 */
+function equitySeries(){
+  var st=S.settings,eq=st.startCapital||0,out=[eq];
+  S.records.forEach(function(r){eq+=netMoney(r);out.push(eq);});
+  return out;
+}
+/** 帳戶狀態：權益、可用、離追繳還有多遠 */
+function marginState(){
+  var st=S.settings;
+  var eq=equitySeries().slice(-1)[0];
+  var free=eq-(st.initMargin||0);
+  var buffer=eq-(st.maintMargin||0);
+  var ptsToCall=st.pointValue?Math.floor(buffer/st.pointValue):0;
+  return {eq:eq,free:free,buffer:buffer,ptsToCall:ptsToCall,
+    ok:eq>=(st.initMargin||0), atRisk:eq<(st.maintMargin||0)};
 }
 function breakevenRate(sl,tp,cost,pv){
   var c=pv?cost/pv:0, d=tp+sl;
@@ -258,7 +301,7 @@ function render(){
 function viewAll(){
   var h='<header class="top"><div class="brand"><span class="mark"></span><div>'+
     '<div class="btitle">開盤突破 SOP</div>'+
-    '<div class="bsub">'+S.settings.winStart+'–'+S.settings.winEnd+' · 一天一局 · 第 '+(S.records.length+1)+' 局 / '+S.settings.target+'</div>'+
+    '<div class="bsub">'+S.settings.winStart+'–'+S.settings.winEnd+' · 一天一局 · 第 '+(S.records.length+1)+' 局 / '+S.settings.target+' · '+VER+'</div>'+
     '</div></div><nav class="tabs">';
   [["home","今日"],["stats","驗證"],["set","規則"]].forEach(function(t){
     h+='<button class="tab'+(S.view===t[0]?" on":"")+'" data-act="tab" data-v="'+t[0]+'">'+t[1]+'</button>';
@@ -345,11 +388,15 @@ function dynFor(id){
       '<div class="pz stop"><span>停損 −'+(sl===null?"—":sl)+'</span><b class="mono">'+(slPrice===null?"—":slPrice)+'</b></div>'+
       '<div class="pz take"><span>停利 +'+st.tpPoints+'</span><b class="mono">'+(tpPrice===null?"—":tpPrice)+'</b></div></div>';
     if(sl!==null&&sl>0){
+      var eqNow=equitySeries().slice(-1)[0];
+      var riskAmt=sl*st.pointValue+estCost(entry);
+      var riskPct=eqNow>0?(riskAmt/eqNow)*100:0;
       b+='<div class="math">'+
         '<div class="mrow"><span>風險報酬</span><b class="mono">1 : '+(st.tpPoints/sl).toFixed(1)+'</b></div>'+
-        '<div class="mrow big"><span>打平所需勝率</span><b class="mono">'+breakevenRate(sl,st.tpPoints,st.costPerRound,st.pointValue).toFixed(0)+'%</b></div>'+
-        '<div class="mrow"><span>單筆最大損失</span><b class="mono">'+(sl*st.pointValue).toLocaleString()+' 元</b></div>'+
-        '<div class="mrow"><span>連錯 3 次</span><b class="mono">−'+(sl*st.pointValue*3).toLocaleString()+' 元</b></div></div>';
+        '<div class="mrow big"><span>打平所需勝率</span><b class="mono">'+breakevenRate(sl,st.tpPoints,estCost(entry),st.pointValue).toFixed(0)+'%</b></div>'+
+        '<div class="mrow"><span>單筆最大損失</span><b class="mono">'+riskAmt.toLocaleString()+' 元</b></div>'+
+        '<div class="mrow'+(riskPct>2?' warnrow':'')+'"><span>佔目前資金</span><b class="mono">'+riskPct.toFixed(2)+'%</b></div>'+
+        '<div class="mrow"><span>連錯 3 次</span><b class="mono">−'+(riskAmt*3).toLocaleString()+' 元</b></div></div>';
       b+= sl<=st.slPoints?primary("go","去掛單",' data-v="1"'):fork("停損超過設定點數","wideSL");
     }
   }
@@ -393,7 +440,7 @@ function dynFor(id){
 
 function dynSet(){
   var st=S.settings;
-  var be=breakevenRate(st.slPoints,st.tpPoints,st.costPerRound,st.pointValue);
+  var be=breakevenRate(st.slPoints,st.tpPoints,estCost(),st.pointValue);
   var b='<div class="math">'+
     '<div class="mrow"><span>風險報酬</span><b class="mono">1 : '+(st.slPoints?(st.tpPoints/st.slPoints).toFixed(1):"—")+'</b></div>'+
     '<div class="mrow big"><span>打平所需勝率</span><b class="mono">'+be.toFixed(0)+'%</b></div>'+
@@ -534,6 +581,7 @@ function viewRun(){
     if(d.exitType==="force"){
       b+='<label class="inline"><input type="checkbox" data-act="held" '+(d.violations.indexOf("heldPast10")>=0?"checked":"")+'>'+st.forceClose+' 其實沒有平掉，我拖了</label>';
     }
+    b+='<label class="inline"><input type="checkbox" data-act="mcall" '+(d.marginCall?"checked":"")+'>這一筆過程中收到保證金追繳通知</label>';
     b+='<div id="dyn">'+dynFor("exit")+'</div>';
     h+=card("07","出場","價位填數字就好，方向和點數會自動換算。先選怎麼出的，下面才知道要問你哪一格。",b);
   }
@@ -545,7 +593,9 @@ function viewRun(){
 function viewReview(){
   var d=S.draft,st=S.settings;
   var skip=d.outcome==="skip",score=scoreOf(d),pts=pnlPoints(d);
-  var money=pts*st.pointValue-(skip?0:st.costPerRound);
+  var draftLike=Object.assign({},d,{outcome:skip?"skip":"traded"});
+  var money=netMoney(draftLike);
+  var eqAfter=equitySeries().slice(-1)[0]+money;
   var ex=excursions(d),sl=num(d.structSL),pr=postRun(d),hm=heldMins(d);
   var b='<div class="scorebox"><div class="sc"><span>紀律</span><b class="'+(score===100?"full":"cut")+'">'+score+'</b></div>';
   if(!skip)b+='<div class="sc"><span>結果（隨機）</span><b class="mono result">'+(pts>0?"+":"")+pts+' 點</b></div>';
@@ -557,7 +607,11 @@ function viewReview(){
   }
   if(!skip){
     b+='<div class="rows">'+
+      kv("點數損益",(pts>0?"+":"")+pts+" 點 × "+st.pointValue+" = "+(pts*st.pointValue).toLocaleString()+" 元")+
+      kv("手續費 + 期交稅","−"+costOf(draftLike).toLocaleString()+" 元")+
       kv("淨損益",(money>0?"+":"")+money.toLocaleString()+" 元")+
+      kv("結算後資金",eqAfter.toLocaleString()+" 元")+
+      kv("離維持保證金",(eqAfter-(st.maintMargin||0)).toLocaleString()+" 元")+
       kv("MFE / MAE","+"+(ex.mfe===null?"—":ex.mfe)+" / −"+(ex.mae===null?"—":ex.mae)+" 點")+
       kv("出場後最遠",pr===null?"—":pr+" 點")+
       kv("用的停損",(sl===null?"—":sl)+" 點")+
@@ -619,8 +673,8 @@ function computeStats(){
   });
   return {n:S.records.length,traded:traded.length,skipped:S.records.length-traded.length,
     winRate:rows.length?(wins.length/rows.length)*100:0,
-    breakeven:breakevenRate(st.slPoints,st.tpPoints,st.costPerRound,st.pointValue),
-    totalPts:r1(totalPts),net:totalPts*st.pointValue-traded.length*st.costPerRound,
+    breakeven:breakevenRate(st.slPoints,st.tpPoints,estCost(),st.pointValue),
+    totalPts:r1(totalPts),net:traded.reduce(function(a,r){return a+netMoney(r);},0),
     expectancy:rows.length?totalPts/rows.length:0,
     disc:S.records.length?S.records.reduce(function(a,r){return a+scoreOf(r);},0)/S.records.length:0,
     streak:streak,maxLose:maxLose,
@@ -634,6 +688,22 @@ function computeStats(){
     byEdge:byEdge,byExit:byExit,byTime:byTime};
 }
 
+/** 資金曲線小圖 */
+function spark(vals,init,maint){
+  var W=300,H=90,pad=4;
+  var lo=Math.min.apply(null,vals.concat([maint||Infinity]).filter(isFinite));
+  var hi=Math.max.apply(null,vals.concat([init||-Infinity]).filter(isFinite));
+  if(hi===lo){hi=lo+1;}
+  var x=function(i){return pad+i*(W-2*pad)/Math.max(1,vals.length-1);};
+  var y=function(v){return H-pad-(v-lo)*(H-2*pad)/(hi-lo);};
+  var pts=vals.map(function(v,i){return x(i)+","+y(v);}).join(" ");
+  var lines="";
+  if(init)lines+='<line x1="0" y1="'+y(init)+'" x2="'+W+'" y2="'+y(init)+'" stroke="var(--line)" stroke-dasharray="3 3"/>';
+  if(maint)lines+='<line x1="0" y1="'+y(maint)+'" x2="'+W+'" y2="'+y(maint)+'" stroke="var(--up)" stroke-dasharray="3 3"/>';
+  return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:90px;display:block;margin-bottom:14px">'+
+    lines+'<polyline fill="none" stroke="var(--slate)" stroke-width="2" points="'+pts+'"/></svg>';
+}
+
 function viewStats(){
   var s=computeStats(),st=S.settings,thin=s.traded<20;
   var h='<main>';
@@ -641,6 +711,29 @@ function viewStats(){
     '<div class="bigstat"><b>'+s.disc.toFixed(0)+'</b><span>平均分</span></div><div class="rows">'+
     kv("連續滿分",s.streak+" 局")+kv("完成進度",s.n+" / "+st.target)+
     kv("出手 / 封盤",s.traded+" / "+s.skipped)+'</div></section>';
+
+  var ms=marginState();
+  var eqs=equitySeries();
+  var peak=eqs[0],maxDD=0,maxDDpct=0;
+  eqs.forEach(function(v){ if(v>peak)peak=v; var dd=peak-v; if(dd>maxDD){maxDD=dd;maxDDpct=peak?dd/peak*100:0;} });
+  var calls=S.records.filter(function(r){return r.marginCall;}).length;
+  var ret=st.startCapital?((ms.eq-st.startCapital)/st.startCapital)*100:0;
+
+  h+='<section class="panel accent"><div class="ptitle">資金</div>'+
+    '<div class="bigstat"><b>'+ms.eq.toLocaleString()+'</b><span>元 · '+(ret>0?"+":"")+ret.toFixed(1)+'%</span></div>';
+  h+= eqs.length>1?spark(eqs,st.initMargin,st.maintMargin):'';
+  h+='<div class="rows">'+
+    kv("起始資金",(st.startCapital||0).toLocaleString()+" 元")+
+    kv("累計淨損益",((ms.eq-(st.startCapital||0))>0?"+":"")+(ms.eq-(st.startCapital||0)).toLocaleString()+" 元")+
+    kv("最大回檔","−"+maxDD.toLocaleString()+" 元（"+maxDDpct.toFixed(1)+"%）")+
+    kv("原始保證金",(st.initMargin||0).toLocaleString()+" 元")+
+    kv("扣掉原始保證金後",ms.free.toLocaleString()+" 元")+
+    kv("維持保證金",(st.maintMargin||0).toLocaleString()+" 元")+
+    kv("離追繳還有",ms.buffer.toLocaleString()+" 元（約 "+ms.ptsToCall+" 點）")+
+    kv("收到追繳次數",calls+" 次")+'</div>';
+  if(ms.atRisk)h+='<div class="verdict fail">權益已低於維持保證金——實盤這時候會收到追繳。</div>';
+  else if(!ms.ok)h+='<div class="verdict fail">權益低於原始保證金，下不了新單。</div>';
+  h+='</section>';
 
   h+='<section class="panel"><div class="ptitle">'+st.target+' 局驗證</div><div class="grid80">';
   for(var i=0;i<st.target;i++){
@@ -736,8 +829,15 @@ function viewSet(){
     fld("每點價值",inp("pointValue",st.pointValue,{scope:"settings"}))+'</div>';
   h+='<div class="row">'+fld("ATR 門檻",inp("atrMin",st.atrMin,{scope:"settings"}))+
     fld("停損點數",inp("slPoints",st.slPoints,{scope:"settings"}))+'</div>';
-  h+='<div class="row">'+fld("停利點數",inp("tpPoints",st.tpPoints,{scope:"settings"}))+
-    fld("來回成本（元）",inp("costPerRound",st.costPerRound,{scope:"settings"}))+'</div>';
+  h+=fld("停利點數",inp("tpPoints",st.tpPoints,{scope:"settings"}));
+  h+='<div class="sechead">成本</div>';
+  h+='<div class="row">'+fld("手續費（單邊，元）",inp("feePerSide",st.feePerSide,{scope:"settings"}))+
+    fld("參考指數（估成本用）",inp("refIndex",st.refIndex,{scope:"settings"}))+'</div>';
+  h+='<div class="sechead">資金與保證金</div>';
+  h+='<p class="pnote">足額保證金（未申請當沖減半）。金額以期交所公告為準，調整後記得回來改。</p>';
+  h+='<div class="row">'+fld("起始資金",inp("startCapital",st.startCapital,{scope:"settings"}))+
+    fld("原始保證金",inp("initMargin",st.initMargin,{scope:"settings"}))+'</div>';
+  h+=fld("維持保證金",inp("maintMargin",st.maintMargin,{scope:"settings"}));
   h+='<div class="sechead">時間窗口</div>';
   h+='<div class="row">'+fld("進場窗口起",inp("winStart",st.winStart,{scope:"settings",text:1}))+
     fld("進場窗口迄",inp("winEnd",st.winEnd,{scope:"settings",text:1}))+'</div>';
@@ -772,7 +872,7 @@ function viewSet(){
 
 function buildCsv(){
   var st=S.settings;
-  var head="日期,模式,ATR,邊界,方向,邊界價,進場,追價,K棒振幅,停損點數,進場時間,出場方式,出場價,出場時間,持倉分鐘,損益點,損益金額,MFE點,MAE點,出場後最遠點,紀律分,違規,備註";
+  var head="日期,模式,ATR,邊界,方向,邊界價,進場,追價,K棒振幅,停損點數,進場時間,出場方式,出場價,出場時間,持倉分鐘,損益點,淨損益,MFE點,MAE點,出場後最遠點,成本,追繳,紀律分,違規,備註";
   var lines=S.records.map(function(r){
     var p=pnlPoints(r),ex=excursions(r),pr=postRun(r),hm=heldMins(r);
     var edge=EDGES.filter(function(e){return e.k===r.edge;})[0];
@@ -783,8 +883,9 @@ function buildCsv(){
       r.outcome==="skip"?("封盤:"+r.skipReason):r.exitType,
       r.exitPrice,r.exitTime,hm===null?"":hm,
       r.outcome==="traded"?p:"",
-      r.outcome==="traded"?(p*st.pointValue-st.costPerRound):"",
+      r.outcome==="traded"?netMoney(r):"",
       ex.mfe===null?"":ex.mfe, ex.mae===null?"":ex.mae, pr===null?"":pr,
+      costOf(r), r.marginCall?"追繳":"",
       scoreOf(r),(r.violations||[]).map(function(v){return PENALTY[v].label;}).join(" / "),
       (r.note||"").replace(/[,\n]/g," ")].join(",");
   });
@@ -873,6 +974,7 @@ document.addEventListener("click",function(e){
   if(a==="chk"){S.chk[v]=!S.chk[v];render();return;}
   if(a==="lock"){d.orders[v]=!d.orders[v];render();return;}
   if(a==="exit"){d.exitType=v;if(p)d.exitPrice=p;render();return;}
+  if(a==="mcall"){d.marginCall=!d.marginCall;render();return;}
   if(a==="held"){
     var i=d.violations.indexOf("heldPast10");
     if(i>=0)d.violations.splice(i,1);else d.violations.push("heldPast10");
