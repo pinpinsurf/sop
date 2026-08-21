@@ -191,7 +191,7 @@ function blankDraft(st){
 
 function scoreOf(r){var s=100;(r.violations||[]).forEach(function(v){if(PENALTY[v])s-=PENALTY[v].p;});return Math.max(0,s);}
 function pnlPoints(r){
-  if(r.outcome!=="traded")return 0;
+  if(r.outcome==="skip")return 0;
   var e=num(r.entry),x=num(r.exitPrice);
   if(e===null||x===null)return 0;
   return r1(r.dir==="long"?x-e:e-x);
@@ -441,7 +441,7 @@ function viewRun(){
       if(ex.mfe!==null)b+='<div class="exbox"><div class="exc"><span>MFE 最大有利</span><b class="mono up">+'+ex.mfe+'</b></div></div>';
     }
     if(d.exitType==="force"){
-      b+='<div class="sechead">持倉期間兩端（10:00 平倉，兩邊都沒觸價）</div>';
+      b+='<div class="sechead">持倉期間兩端（時間到平倉，兩邊都沒觸價）</div>';
       b+='<div class="row">'+fld("最有利到的價",inp("mfePrice",d.mfePrice))+fld("最不利到的價",inp("maePrice",d.maePrice))+'</div>';
       if(ex.mfe!==null||ex.mae!==null){
         b+='<div class="exbox">'+
@@ -462,8 +462,8 @@ function viewRun(){
       var over=r1(pr-pnlPoints(d));
       var lbl = over<=0 ? " · 出場點就是最遠處"
         : (d.exitType==="sl" ? " · 停損後回頭走了 "+over+" 點（被洗出去）"
-           : " · 出場後又走了 "+over+" 點（賣飛）");
-      b+='<div class="note'+(over>0?" alarm":"")+'">從進場算起最遠 '+pr+' 點'+lbl+'</div>';
+           : " · 出場後又多走 "+over+" 點（賣飛）");
+      b+='<div class="note'+(over>0?" alarm":"")+'">從進場算起最遠 '+pr+' 點，你出在 '+pnlPoints(d)+' 點'+lbl+'</div>';
     }
     b+=fld("這一筆的話",'<textarea rows="3" data-field="note" data-scope="draft" placeholder="只寫當下看到什麼、做了什麼判斷。不寫感想。">'+esc(d.note)+'</textarea>');
     if(d.exitType==="force"){
@@ -547,7 +547,7 @@ function computeStats(){
       pts:r1(g.reduce(function(a,x){return a+x.p;},0))};
   });
   var byExit={};
-  [["tp","停利"],["sl","停損"],["force","10:00 平倉"]].forEach(function(E){
+  [["tp","停利"],["sl","停損"],["force","時間到平倉"]].forEach(function(E){
     var g=rows.filter(function(x){return x.r.exitType===E[0];});
     if(g.length)byExit[E[1]]={n:g.length,pts:r1(g.reduce(function(a,x){return a+x.p;},0))};
   });
