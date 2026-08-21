@@ -146,15 +146,16 @@ var DEFAULTS = {
   contract: "小台", pointValue: 50, atrMin: 50,
   slPoints: 60, tpPoints: 100, costPerRound: 100,
   target: 80, timeStopMode: "智能單",
+  winStart: "09:15", winEnd: "09:45", forceClose: "10:00",
   lastBackup: null, lastBackupN: 0
 };
 
 var PENALTY = {
   noSL:{p:40,label:"沒設停損單"}, noTP:{p:20,label:"沒設停利單"},
-  noTimeStop:{p:25,label:"沒設 10:00 平倉"}, lateEntry:{p:30,label:"09:20 之後才進場"},
+  noTimeStop:{p:25,label:"沒設強制平倉"}, lateEntry:{p:30,label:"超過進場窗口才進場"},
   wideSL:{p:30,label:"停損放超過設定點數"}, notFirst:{p:30,label:"不是當日第一次突破"},
   lowATR:{p:25,label:"ATR 未達門檻仍進場"}, midBox:{p:30,label:"在箱體中央進場"},
-  heldPast10:{p:50,label:"10:00 沒有平掉"}
+  heldPast10:{p:50,label:"強制平倉時間沒有平掉"}
 };
 
 var STEPS = ["prep","atr","window","breakout","risk","orders","exit","review"];
@@ -257,7 +258,7 @@ function render(){
 function viewAll(){
   var h='<header class="top"><div class="brand"><span class="mark"></span><div>'+
     '<div class="btitle">開盤突破 SOP</div>'+
-    '<div class="bsub">09:15–09:20 · 一天一局 · 第 '+(S.records.length+1)+' 局 / '+S.settings.target+'</div>'+
+    '<div class="bsub">'+S.settings.winStart+'–'+S.settings.winEnd+' · 一天一局 · 第 '+(S.records.length+1)+' 局 / '+S.settings.target+'</div>'+
     '</div></div><nav class="tabs">';
   [["home","今日"],["stats","驗證"],["set","規則"]].forEach(function(t){
     h+='<button class="tab'+(S.view===t[0]?" on":"")+'" data-act="tab" data-v="'+t[0]+'">'+t[1]+'</button>';
@@ -333,13 +334,16 @@ function viewRun(){
   }
 
   if(id==="window"){
-    var b='<div class="clock"><span>09:15</span><div class="bar"></div><span>09:20</span></div>'+
-      '<div class="choices">'+
-      '<button class="ch" data-act="go" data-v="1"><b>09:20 前出現突破</b><em>繼續判定</em></button>'+
-      '<button class="ch" data-act="closeday" data-v="09:20 前沒有突破"><b>沒有突破</b><em>今日封盤</em></button>'+
-      '<button class="ch warn" data-act="force" data-v="lateEntry"><b>09:20 之後才想進</b><em>會記一筆違規</em></button>'+
+    var gap=heldMins({entryTime:st.winEnd,exitTime:st.forceClose});
+    var b='<div class="clock"><span>'+st.winStart+'</span><div class="bar"></div><span>'+st.winEnd+'</span></div>';
+    if(gap!==null)b+='<div class="note'+(gap<10?" alarm":"")+'">窗口關閉到 '+st.forceClose+' 強制平倉，最晚進場也還有 '+gap+' 分鐘'+
+      (gap<10?"——太短，這筆幾乎沒有時間走完":"")+'</div>';
+    b+='<div class="choices">'+
+      '<button class="ch" data-act="go" data-v="1"><b>'+st.winEnd+' 前出現突破</b><em>繼續判定</em></button>'+
+      '<button class="ch" data-act="closeday" data-v="'+st.winEnd+' 前沒有突破"><b>沒有突破</b><em>今日封盤</em></button>'+
+      '<button class="ch warn" data-act="force" data-v="lateEntry"><b>'+st.winEnd+' 之後才想進</b><em>會記一筆違規</em></button>'+
       '</div>';
-    h+=card("03","時間閘","09:15 開盤雜訊過後開始看。09:20 沒有突破，今天就結束了。",b);
+    h+=card("03","時間閘",st.winStart+" 開盤雜訊過後開始看。"+st.winEnd+" 沒有突破，今天就結束了。",b);
   }
 
   if(id==="breakout"){
@@ -392,9 +396,11 @@ function viewRun(){
   }
 
   if(id==="orders"){
-    var locks=[["entry","進場單成交"],["sl","停損單掛在 "+(slPrice===null?"—":slPrice)],
-      ["tp","停利單掛在 "+(tpPrice===null?"—":tpPrice)],
-      ["time",st.timeStopMode==="智能單"?"10:00 定時平倉單已設":"10:00 鬧鐘已設"]];
+    var locks=[
+      ["sl","停損停利二擇一："+(slPrice===null?"—":slPrice)+" ／ "+(tpPrice===null?"—":tpPrice)],
+      ["tp","子單設為母單成交後才生效（空手時不會誤開反向倉）"],
+      ["entry","觸價進場母單 "+(entry===null?"—":entry)+" 已送出"],
+      ["time",st.timeStopMode==="智能單"?(st.forceClose+" 定時平倉單已設"):(st.forceClose+" 鬧鐘已設")]];
     var b='<div class="locks">'+locks.map(function(L){
       return '<button class="lock'+(d.orders[L[0]]?" on":"")+'" data-act="lock" data-v="'+L[0]+'">'+
         '<span class="lk">'+(d.orders[L[0]]?"●":"○")+'</span><span>'+L[1]+'</span></button>';}).join("")+'</div>';
@@ -405,13 +411,13 @@ function viewRun(){
       b+='<div class="choices"><button class="ch warn" data-act="force" data-v="'+vs.join(",")+'">'+
         '<b>沒掛齊就進場了</b><em>會記違規，照實記</em></button></div>';
     }
-    h+=card("06","掛單確認","四把鎖都上了才算進場。少一把，這筆從一開始就是錯的。",b);
+    h+=card("06","掛單確認","先設保護，再送進場，最後設時限。空手時獨立掛停損會開出反向倉——子單一定要綁在母單下面。",b);
   }
 
   if(id==="exit"){
     var ex=excursions(d);
     var b=fld("怎麼出的",'<div class="exits">'+
-      [["tp","停利 +"+st.tpPoints,tpPrice],["sl","停損 −"+(sl===null?st.slPoints:sl),slPrice],["force","10:00 平倉",null]]
+      [["tp","停利 +"+st.tpPoints,tpPrice],["sl","停損 −"+(sl===null?st.slPoints:sl),slPrice],["force",st.forceClose+" 平倉",null]]
       .map(function(E){
         return '<button class="ex'+(d.exitType===E[0]?" on":"")+'" data-act="exit" data-v="'+E[0]+'" data-p="'+(E[2]===null?"":E[2])+'">'+E[1]+'</button>';
       }).join("")+'</div>');
@@ -449,8 +455,8 @@ function viewRun(){
        :"出場後還走多遠")+'</div>';
     b+='<p class="pnote">'+
       (d.exitType==="sl"?"停損之後，價格有沒有轉回你原本的方向？常常回頭就代表停損太緊或進場太早。繼續往反方向跑就填出場價，那代表停損救了你。"
-       :"到 10:00 為止，價格最遠往你原本的方向走到哪裡。")+'</p>';
-    b+=fld("出場後最遠走到的價（到 10:00）",inp("postExitPrice",d.postExitPrice));
+       :"到 "+st.forceClose+" 為止，價格最遠往你原本的方向走到哪裡。")+'</p>';
+    b+=fld("出場後最遠走到的價（到 "+st.forceClose+"）",inp("postExitPrice",d.postExitPrice));
     var pr=postRun(d);
     if(pr!==null){
       var over=r1(pr-pnlPoints(d));
@@ -461,7 +467,7 @@ function viewRun(){
     }
     b+=fld("這一筆的話",'<textarea rows="3" data-field="note" data-scope="draft" placeholder="只寫當下看到什麼、做了什麼判斷。不寫感想。">'+esc(d.note)+'</textarea>');
     if(d.exitType==="force"){
-      b+='<label class="inline"><input type="checkbox" data-act="held" '+(d.violations.indexOf("heldPast10")>=0?"checked":"")+'>10:00 其實沒有平掉，我拖了</label>';
+      b+='<label class="inline"><input type="checkbox" data-act="held" '+(d.violations.indexOf("heldPast10")>=0?"checked":"")+'>'+st.forceClose+' 其實沒有平掉，我拖了</label>';
     }
     var miss=[];
     if(!d.exitType)miss.push("出場方式");
@@ -545,6 +551,17 @@ function computeStats(){
     var g=rows.filter(function(x){return x.r.exitType===E[0];});
     if(g.length)byExit[E[1]]={n:g.length,pts:r1(g.reduce(function(a,x){return a+x.p;},0))};
   });
+  var byTime={};
+  rows.forEach(function(x){
+    var t=x.r.entryTime;if(!t)return;
+    var p=t.split(":");if(p.length<2)return;
+    var m=parseInt(p[0],10)*60+parseInt(p[1],10);
+    if(isNaN(m))return;
+    var b=Math.floor(m/15)*15;
+    var k=pad(Math.floor(b/60))+":"+pad(b%60);
+    if(!byTime[k])byTime[k]={n:0,w:0,pts:0};
+    byTime[k].n++;if(x.p>0)byTime[k].w++;byTime[k].pts=r1(byTime[k].pts+x.p);
+  });
   return {n:S.records.length,traded:traded.length,skipped:S.records.length-traded.length,
     winRate:rows.length?(wins.length/rows.length)*100:0,
     breakeven:breakevenRate(st.slPoints,st.tpPoints,st.costPerRound,st.pointValue),
@@ -559,7 +576,7 @@ function computeStats(){
     holdMed:median(holds),
     slN:slRows.length,shakeN:shakes.length,shakeMed:median(shakes),
     shakeMax:shakes.length?Math.max.apply(null,shakes):null,
-    byEdge:byEdge,byExit:byExit};
+    byEdge:byEdge,byExit:byExit,byTime:byTime};
 }
 
 function viewStats(){
@@ -636,6 +653,14 @@ function viewStats(){
       h+=kv(l,g.n+" 筆 · 勝 "+g.w+" · "+(g.pts>0?"+":"")+g.pts+" 點");});
     h+='</div></section>';
   }
+  var tk=Object.keys(s.byTime).sort();
+  if(tk.length){
+    h+='<section class="panel"><div class="ptitle">依進場時段分群</div>'+
+      '<p class="pnote">哪個時段的突破比較真？這是決定進場窗口該多寬的唯一依據。</p><div class="rows">';
+    tk.forEach(function(l){var g=s.byTime[l];
+      h+=kv(l+" 起",g.n+" 筆 · 勝 "+g.w+" · "+(g.pts>0?"+":"")+g.pts+" 點");});
+    h+='</div></section>';
+  }
   var xk=Object.keys(s.byExit);
   if(xk.length){
     h+='<section class="panel"><div class="ptitle">依出場方式分群</div><div class="rows">';
@@ -664,7 +689,14 @@ function viewSet(){
     '<div class="mrow big"><span>打平所需勝率</span><b class="mono">'+be.toFixed(0)+'%</b></div>'+
     '<div class="mrow"><span>單筆最大損失</span><b class="mono">'+(st.slPoints*st.pointValue).toLocaleString()+' 元</b></div>'+
     '<div class="mrow"><span>連錯 5 次</span><b class="mono">−'+(st.slPoints*st.pointValue*5).toLocaleString()+' 元</b></div></div>';
-  h+=fld("10:00 平倉靠什麼",'<div class="seg">'+["智能單","手動鬧鐘"].map(function(m){
+  h+='<div class="sechead">時間窗口</div>';
+  h+='<div class="row">'+fld("進場窗口起",inp("winStart",st.winStart,{scope:"settings",text:1}))+
+    fld("進場窗口迄",inp("winEnd",st.winEnd,{scope:"settings",text:1}))+'</div>';
+  h+=fld("強制平倉",inp("forceClose",st.forceClose,{scope:"settings",text:1}));
+  var gap2=heldMins({entryTime:st.winEnd,exitTime:st.forceClose});
+  if(gap2!==null)h+='<div class="note'+(gap2<10?" alarm":"")+'">最晚進場後還剩 '+gap2+' 分鐘'+
+    (gap2<10?"——太短，考慮把窗口收早或把平倉延後":"")+'</div>';
+  h+=fld("強制平倉靠什麼",'<div class="seg">'+["智能單","手動鬧鐘"].map(function(m){
     return '<button data-act="timestop" data-v="'+m+'" class="'+(st.timeStopMode===m?"on":"")+'">'+m+'</button>';}).join("")+'</div>');
   h+=fld("驗證筆數",inp("target",st.target,{scope:"settings"}));
   h+='</section>';
@@ -750,8 +782,9 @@ document.addEventListener("input",function(e){
   var f=t.dataset.field,sc=t.dataset.scope;
   if(sc==="draft"){S.draft[f]=t.value;render();}
   else if(sc==="settings"){
-    var v=f==="date"?t.value:num(t.value);
-    S.settings[f]=(v===null?0:v);save();render();
+    if(f==="winStart"||f==="winEnd"||f==="forceClose"){S.settings[f]=t.value;}
+    else{var v=num(t.value);S.settings[f]=(v===null?0:v);}
+    save();render();
   }else if(sc==="root"){S.imp=t.value;}
 });
 
