@@ -1,4 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="突破SOP">
+<meta name="theme-color" content="#D9DCD6">
+<title>開盤突破 SOP</title>
+<style>
+:root{--panel:#D9DCD6;--paper:#E6E8E2;--ink:#141A1F;--slate:#2E4756;--mute:#7C8479;
+--line:#B9BEB4;--up:#C0392B;--down:#1E7B4F;--warn:#A8621B}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--panel)}
+body{color:var(--ink);font-family:"PingFang TC","Noto Sans TC","Hiragino Sans",system-ui,sans-serif;
+padding:env(safe-area-inset-top) 0 calc(48px + env(safe-area-inset-bottom));-webkit-font-smoothing:antialiased}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
+.top{padding:18px 18px 12px;border-bottom:1px solid var(--line)}
+.brand{display:flex;gap:12px;align-items:center}
+.mark{width:14px;height:34px;background:var(--slate);flex:none}
+.btitle{font-family:"Noto Serif TC","Songti TC",serif;font-size:21px;font-weight:600;letter-spacing:.04em}
+.bsub{font-size:11.5px;color:var(--mute);letter-spacing:.06em;margin-top:2px}
+.tabs{display:flex;gap:6px;margin-top:14px}
+.tab{flex:1;padding:9px 0;border:1px solid var(--line);background:transparent;color:var(--mute);font-size:13px;font-family:inherit;letter-spacing:.1em;cursor:pointer}
+.tab.on{background:var(--slate);border-color:var(--slate);color:var(--paper)}
+.err{margin:12px 18px;padding:10px 12px;border-left:3px solid var(--up);background:#0000000d;font-size:13px}
+.nag{margin:12px 18px;padding:11px 13px;border-left:3px solid var(--warn);background:#a8621b14;font-size:13px;line-height:1.6;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.nag button{border:1px solid var(--warn);background:transparent;color:var(--warn);font-family:inherit;font-size:13px;padding:7px 12px;cursor:pointer;flex:none}
+.dlrow{display:flex;gap:8px;margin-top:8px}
+.dlrow button{flex:1}
+main{padding:16px 18px}
+.gates{display:flex;list-style:none;padding:0;margin:0 0 18px;gap:3px}
+.gate{flex:1;text-align:center;padding:6px 0 5px;border-top:2px solid var(--line);color:var(--mute);font-size:9.5px}
+.gate .gnum{display:block;font-family:ui-monospace,Menlo,monospace;font-size:11px}
+.gate.done{border-top-color:var(--slate);color:var(--slate);cursor:pointer}
+.gate.now{border-top-color:var(--ink);color:var(--ink);font-weight:600}
+.card,.panel{background:var(--paper);border:1px solid var(--line);padding:20px 18px;margin-bottom:14px;position:relative}
+.panel.accent{border-left:3px solid var(--slate)}
+.ck{position:absolute;top:14px;right:16px;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--line)}
+.card h2{font-family:"Noto Serif TC","Songti TC",serif;font-size:20px;margin:0 0 6px;letter-spacing:.03em}
+.card .sub{margin:0 0 18px;font-size:13px;line-height:1.6;color:var(--mute)}
+.ptitle{font-size:11px;letter-spacing:.16em;color:var(--mute);margin-bottom:14px}
+.pnote{font-size:12.5px;line-height:1.7;color:var(--mute);margin:-6px 0 14px}
+.sechead{font-size:11px;letter-spacing:.12em;color:var(--mute);margin:6px 0 10px;padding-top:10px;border-top:1px solid var(--line)}
+.row{display:flex;gap:10px}.row .field{flex:1}
+.field{display:block;margin-bottom:14px}
+.field>span{display:block;font-size:11px;letter-spacing:.1em;color:var(--mute);margin-bottom:5px}
+input,textarea{width:100%;padding:10px 11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:16px;font-family:ui-monospace,Menlo,monospace;border-radius:0;-webkit-appearance:none}
+textarea{font-family:inherit;font-size:15px;line-height:1.6}
+input:focus,textarea:focus{outline:2px solid var(--slate);outline-offset:-2px}
+input.big{font-size:26px;padding:12px}
+.seg{display:flex;border:1px solid var(--line)}
+.seg button{flex:1;padding:10px 0;border:0;background:transparent;font-family:inherit;font-size:14px;color:var(--mute);cursor:pointer}
+.seg button.on{background:var(--slate);color:var(--paper)}
+.verdict{padding:11px 13px;font-size:13px;line-height:1.6;margin-bottom:14px;border-left:3px solid}
+.verdict.pass{border-color:var(--down);background:#1e7b4f14}
+.verdict.fail{border-color:var(--warn);background:#a8621b14}
+.clock{display:flex;align-items:center;gap:10px;margin-bottom:18px;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--mute)}
+.clock .bar{flex:1;height:2px;background:linear-gradient(90deg,var(--slate),var(--line))}
+.choices{display:flex;flex-direction:column;gap:8px}
+.ch{text-align:left;padding:13px 15px;border:1px solid var(--line);background:var(--panel);font-family:inherit;cursor:pointer;width:100%;color:var(--ink)}
+.ch b{display:block;font-size:15px;font-weight:600;margin-bottom:2px}
+.ch em{font-style:normal;font-size:12px;color:var(--mute)}
+.ch.warn{border-style:dashed;border-color:var(--warn)}.ch.warn b{color:var(--warn)}
+.edges{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.edg{padding:12px 10px;border:1px solid var(--line);background:var(--panel);font-family:inherit;cursor:pointer;text-align:left;color:var(--ink)}
+.edg b{display:block;font-size:14px;margin-bottom:3px}
+.edg em{font-style:normal;font-size:12px;color:var(--mute);font-family:ui-monospace,Menlo,monospace}
+.edg.on.long{background:var(--up);border-color:var(--up);color:#fff}
+.edg.on.short{background:var(--down);border-color:var(--down);color:#fff}
+.edg.on em{color:#ffffffcc}
+.tag{font-size:13px;letter-spacing:.08em;color:var(--slate);margin:12px 0 4px}
+.note{font-size:12.5px;color:var(--mute);margin:-6px 0 14px;line-height:1.6}
+.note.alarm{color:var(--warn)}
+.checklist{border:1px solid var(--line);padding:12px;margin-bottom:16px}
+.cltitle{font-size:11px;letter-spacing:.12em;color:var(--mute);margin-bottom:9px}
+.chk{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;padding:8px 0;border:0;background:transparent;font-family:inherit;font-size:14px;color:var(--mute);cursor:pointer;line-height:1.5}
+.chk .box{width:18px;height:18px;border:1px solid var(--line);flex:none;display:flex;align-items:center;justify-content:center;font-size:12px}
+.chk.on{color:var(--ink)}
+.chk.on .box{background:var(--slate);border-color:var(--slate);color:var(--paper)}
+.prices{display:flex;gap:8px;margin-bottom:14px}
+.pz{flex:1;padding:11px;border:1px solid var(--line);text-align:center}
+.pz span{display:block;font-size:10.5px;color:var(--mute);margin-bottom:4px}
+.pz b{font-size:17px}
+.pz.stop{border-color:var(--warn)}.pz.take{border-color:var(--down)}
+.math{border:1px solid var(--line);padding:4px 12px;margin-bottom:16px}
+.mrow{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+.mrow:last-child{border-bottom:0}
+.mrow span{color:var(--mute)}
+.mrow.big b{font-size:22px;color:var(--slate)}
+.locks{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.lock{display:flex;gap:11px;align-items:center;padding:14px;border:1px solid var(--line);background:var(--panel);font-family:inherit;font-size:14px;color:var(--mute);cursor:pointer;text-align:left;width:100%}
+.lock.on{color:var(--ink);border-color:var(--slate)}
+.lock.on .lk{color:var(--slate)}
+.exits{display:flex;flex-direction:column;gap:6px}
+.ex{padding:12px;border:1px solid var(--line);background:var(--panel);font-family:inherit;font-size:14px;cursor:pointer;width:100%;color:var(--ink)}
+.ex.on{background:var(--slate);color:var(--paper);border-color:var(--slate)}
+.exbox{display:flex;gap:8px;margin-bottom:16px}
+.exc{flex:1;border:1px solid var(--line);padding:12px;text-align:center}
+.exc span{display:block;font-size:10.5px;color:var(--mute);margin-bottom:5px}
+.exc b{font-size:20px}
+.exc b.up{color:var(--down)}.exc b.down{color:var(--up)}
+.inline{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--warn);margin-bottom:14px}
+.inline input{width:auto}
+.scorebox{display:flex;gap:10px;margin-bottom:16px}
+.sc{flex:1;border:1px solid var(--line);padding:16px;text-align:center}
+.sc span{display:block;font-size:11px;color:var(--mute);letter-spacing:.1em;margin-bottom:6px}
+.sc b{font-size:34px;font-family:"Noto Serif TC",serif;display:block}
+.sc b.full{color:var(--slate)}.sc b.cut{color:var(--warn)}
+.sc b.result{font-size:26px;font-family:ui-monospace,Menlo,monospace;color:var(--mute)}
+.viols{margin-bottom:14px}
+.vi{display:flex;gap:10px;font-size:13px;padding:7px 0;border-bottom:1px solid var(--line);color:var(--warn)}
+.vi span{font-family:ui-monospace,Menlo,monospace}
+.rows{margin-bottom:14px}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.kv span{color:var(--mute)}
+.kv b{text-align:right;white-space:nowrap}
+.bigstat{display:flex;align-items:baseline;gap:9px;margin-bottom:16px}
+.bigstat b{font-size:52px;font-family:"Noto Serif TC",serif;line-height:1;color:var(--slate)}
+.bigstat span{font-size:12px;color:var(--mute)}
+.grid80{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;margin-bottom:12px}
+.cell{aspect-ratio:1;border:1px solid var(--line);background:transparent}
+.cell.skip{background:var(--slate);border-color:var(--slate)}
+.cell.win{background:var(--up);border-color:var(--up)}
+.cell.loss{background:var(--down);border-color:var(--down)}
+.cell.broke{outline:2px solid var(--warn);outline-offset:-1px;opacity:.5}
+.legend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mute);flex-wrap:wrap}
+.legend i{width:11px;height:11px;display:inline-block;margin-left:8px}
+.primary{width:100%;padding:15px;border:0;background:var(--ink);color:var(--paper);font-family:inherit;font-size:15px;letter-spacing:.05em;cursor:pointer}
+.primary:active{background:var(--slate)}
+.ghost{width:100%;padding:13px;border:1px solid var(--up);background:transparent;color:var(--up);font-family:inherit;font-size:14px;cursor:pointer;margin-top:8px}
+.soft{width:100%;padding:13px;border:1px solid var(--line);background:transparent;color:var(--ink);font-family:inherit;font-size:14px;cursor:pointer;margin-top:8px}
+.panel.danger{border-color:#c0392b40}
+button:focus-visible,input:focus-visible{outline:2px solid var(--slate);outline-offset:1px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+"use strict";
 
+var KEY = "breakout-sop-v2";
+
+var DEFAULTS = {
+  contract: "小台", pointValue: 50, atrMin: 50,
+  slPoints: 60, tpPoints: 100, costPerRound: 100,
+  target: 80, timeStopMode: "智能單",
+  lastBackup: null, lastBackupN: 0
+};
+
+var PENALTY = {
+  noSL:{p:40,label:"沒設停損單"}, noTP:{p:20,label:"沒設停利單"},
+  noTimeStop:{p:25,label:"沒設 10:00 平倉"}, lateEntry:{p:30,label:"09:20 之後才進場"},
+  wideSL:{p:30,label:"停損放超過設定點數"}, notFirst:{p:30,label:"不是當日第一次突破"},
+  lowATR:{p:25,label:"ATR 未達門檻仍進場"}, midBox:{p:30,label:"在箱體中央進場"},
+  heldPast10:{p:50,label:"10:00 沒有平掉"}
+};
+
+var STEPS = ["prep","atr","window","breakout","risk","orders","exit","review"];
+var STEP_LABEL = {prep:"結構",atr:"波動",window:"時間",breakout:"突破",risk:"風險",orders:"掛單",exit:"出場",review:"結算"};
+
+var EDGES = [
+  {k:"prevHigh",l:"前日高",dir:"long"},
+  {k:"boxHigh",l:"箱型上緣",dir:"long"},
+  {k:"prevLow",l:"前日低",dir:"short"},
+  {k:"boxLow",l:"箱型下緣",dir:"short"}
+];
+
+/* ---------- helpers ---------- */
+function pad(n){return String(n).padStart(2,"0");}
+function todayStr(){var d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
+function num(v){var n=parseFloat(v);return isNaN(n)?null:n;}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function median(a){if(!a.length)return null;var s=a.slice().sort(function(x,y){return x-y;});
+  var m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;}
+function r1(n){return Math.round(n*10)/10;}
+
+function blankDraft(st){
+  return {id:"t"+Date.now(),date:todayStr(),mode:"復盤",
+    prevHigh:"",prevLow:"",boxHigh:"",boxLow:"",atr:"",
+    dir:null,edge:"",edgePrice:"",entry:"",barRange:"",
+    structSL:String(st.slPoints),
+    orders:{entry:false,sl:false,tp:false,time:false},
+    entryTime:"",exitType:"",exitPrice:"",exitTime:"",
+    mfePrice:"",maePrice:"",postExitPrice:"",
+    note:"",violations:[],outcome:null,skipReason:""};
+}
+
+function scoreOf(r){var s=100;(r.violations||[]).forEach(function(v){if(PENALTY[v])s-=PENALTY[v].p;});return Math.max(0,s);}
+function pnlPoints(r){
+  if(r.outcome!=="traded")return 0;
+  var e=num(r.entry),x=num(r.exitPrice);
+  if(e===null||x===null)return 0;
+  return r1(r.dir==="long"?x-e:e-x);
+}
+function excursions(r){
+  var e=num(r.entry),a=num(r.mfePrice),b=num(r.maePrice);
+  if(e===null)return {mfe:null,mae:null};
+  var s=r.dir==="long"?1:-1;
+  return {mfe:a===null?null:Math.max(0,r1((a-e)*s)),mae:b===null?null:Math.max(0,r1((e-b)*s))};
+}
+/** 出場後最遠走到哪：從進場價算起的總有利幅度（用來看賣飛） */
+function postRun(r){
+  var e=num(r.entry),p=num(r.postExitPrice);
+  if(e===null||p===null)return null;
+  var s=r.dir==="long"?1:-1;
+  return r1((p-e)*s);
+}
+/** 兩個 HH:MM 之間差幾分鐘 */
+function heldMins(r){
+  if(!r.entryTime||!r.exitTime)return null;
+  var a=r.entryTime.split(":"),b=r.exitTime.split(":");
+  if(a.length<2||b.length<2)return null;
+  var m1=parseInt(a[0],10)*60+parseInt(a[1],10);
+  var m2=parseInt(b[0],10)*60+parseInt(b[1],10);
+  if(isNaN(m1)||isNaN(m2))return null;
+  return m2-m1;
+}
+function breakevenRate(sl,tp,cost,pv){
+  var c=pv?cost/pv:0, d=tp+sl;
+  return d>0?((sl+c)/d)*100:0;
 }
 
 /* ---------- state ---------- */
@@ -125,6 +347,7 @@ function viewRun(){
       return '<button class="edg'+(d.edge===e.k?" on "+e.dir:"")+'" data-act="edge" data-v="'+e.k+'">'+
         '<b>'+e.l+'</b><em>'+(d[e.k]||"未填")+'</em></button>';}).join("")+'</div>');
     if(d.dir)b+='<div class="tag">'+(d.dir==="long"?"向上突破 · 做多":"向下突破 · 做空")+'</div>';
+    else b+='<div class="note alarm">先點上面四個邊界其中一個，方向才會定下來。</div>';
     b+='<div class="row">'+fld("邊界價",inp("edgePrice",d.edgePrice))+fld("進場價",inp("entry",d.entry))+'</div>';
     var ep=num(d.edgePrice);
     if(entry!==null&&ep!==null)b+='<div class="note">追價 '+Math.abs(entry-ep).toFixed(0)+' 點（進場價離邊界多遠）</div>';
@@ -193,12 +416,48 @@ function viewRun(){
         return '<button class="ex'+(d.exitType===E[0]?" on":"")+'" data-act="exit" data-v="'+E[0]+'" data-p="'+(E[2]===null?"":E[2])+'">'+E[1]+'</button>';
       }).join("")+'</div>');
     b+='<div class="row">'+fld("出場價",inp("exitPrice",d.exitPrice))+fld("出場時間",inp("exitTime",d.exitTime,{text:1,ph:"09:34"}))+'</div>';
-    b+='<div class="sechead">持倉期間的極值（不是整天）</div>';
-    b+='<div class="row">'+fld("最有利到的價",inp("mfePrice",d.mfePrice))+fld("最不利到的價",inp("maePrice",d.maePrice))+'</div>';
-    if(ex.mfe!==null||ex.mae!==null){
-      b+='<div class="exbox">'+
-        '<div class="exc"><span>MFE 最大有利</span><b class="mono up">+'+(ex.mfe===null?"—":ex.mfe)+'</b></div>'+
-        '<div class="exc"><span>MAE 最大逆行</span><b class="mono down">−'+(ex.mae===null?"—":ex.mae)+'</b></div></div>';
+    b+='<div class="row">'+fld("進場時間",inp("entryTime",d.entryTime,{text:1,ph:"09:18"}))+
+      fld("出場時間",inp("exitTime",d.exitTime,{text:1,ph:"09:34"}))+'</div>';
+    var hm=heldMins(d);
+    if(hm!==null)b+='<div class="note">持倉 '+hm+' 分鐘</div>';
+
+    if(d.exitType==="tp"){
+      b+='<div class="sechead">停利前逆風多少（校準停損）</div>';
+      b+='<p class="pnote">這筆賺了，但進場後最不利到哪裡？停損如果比這個數字緊，就會殺掉這種贏家。</p>';
+      b+=fld("持倉期間最不利到的價",inp("maePrice",d.maePrice));
+      if(ex.mae!==null)b+='<div class="exbox"><div class="exc"><span>MAE 最大逆行</span><b class="mono down">−'+ex.mae+'</b></div>'+
+        '<div class="exc"><span>你的停損</span><b class="mono">'+(sl===null?"—":sl)+'</b></div></div>';
+    }
+    if(d.exitType==="sl"){
+      b+='<div class="sechead">停損前賺過多少（看是不是假突破）</div>';
+      b+='<p class="pnote">這筆死了，但死之前有沒有賺過？賺很多才回頭代表方向沒錯，錯在沒保護。</p>';
+      b+=fld("持倉期間最有利到的價",inp("mfePrice",d.mfePrice));
+      if(ex.mfe!==null)b+='<div class="exbox"><div class="exc"><span>MFE 最大有利</span><b class="mono up">+'+ex.mfe+'</b></div></div>';
+    }
+    if(d.exitType==="force"){
+      b+='<div class="sechead">持倉期間兩端（10:00 平倉，兩邊都沒觸價）</div>';
+      b+='<div class="row">'+fld("最有利到的價",inp("mfePrice",d.mfePrice))+fld("最不利到的價",inp("maePrice",d.maePrice))+'</div>';
+      if(ex.mfe!==null||ex.mae!==null){
+        b+='<div class="exbox">'+
+          '<div class="exc"><span>MFE 最大有利</span><b class="mono up">+'+(ex.mfe===null?"—":ex.mfe)+'</b></div>'+
+          '<div class="exc"><span>MAE 最大逆行</span><b class="mono down">−'+(ex.mae===null?"—":ex.mae)+'</b></div></div>';
+      }
+    }
+    b+='<div class="sechead">'+
+      (d.exitType==="sl"?"出場後有沒有回頭（看是不是被洗出去）"
+       :d.exitType==="tp"?"出場後還走多遠（看賣飛）"
+       :"出場後還走多遠")+'</div>';
+    b+='<p class="pnote">'+
+      (d.exitType==="sl"?"停損之後，價格有沒有轉回你原本的方向？常常回頭就代表停損太緊或進場太早。繼續往反方向跑就填出場價，那代表停損救了你。"
+       :"到 10:00 為止，價格最遠往你原本的方向走到哪裡。")+'</p>';
+    b+=fld("出場後最遠走到的價（到 10:00）",inp("postExitPrice",d.postExitPrice));
+    var pr=postRun(d);
+    if(pr!==null){
+      var over=r1(pr-pnlPoints(d));
+      var lbl = over<=0 ? " · 出場點就是最遠處"
+        : (d.exitType==="sl" ? " · 停損後回頭走了 "+over+" 點（被洗出去）"
+           : " · 出場後又走了 "+over+" 點（賣飛）");
+      b+='<div class="note'+(over>0?" alarm":"")+'">從進場算起最遠 '+pr+' 點'+lbl+'</div>';
     }
     b+=fld("這一筆的話",'<textarea rows="3" data-field="note" data-scope="draft" placeholder="只寫當下看到什麼、做了什麼判斷。不寫感想。">'+esc(d.note)+'</textarea>');
     if(d.exitType==="force"){
@@ -207,9 +466,12 @@ function viewRun(){
     var miss=[];
     if(!d.exitType)miss.push("出場方式");
     if(num(d.exitPrice)===null)miss.push("出場價");
+    if(!d.entryTime)miss.push("進場時間");
     if(!d.exitTime)miss.push("出場時間");
-    if(num(d.mfePrice)===null)miss.push("持倉最有利價");
-    if(num(d.maePrice)===null)miss.push("持倉最不利價");
+    if(d.exitType==="tp"&&num(d.maePrice)===null)miss.push("持倉最不利價");
+    if(d.exitType==="sl"&&num(d.mfePrice)===null)miss.push("持倉最有利價");
+    if(d.exitType==="force"&&(num(d.mfePrice)===null||num(d.maePrice)===null))miss.push("持倉兩端價");
+    if(num(d.postExitPrice)===null)miss.push("出場後最遠價");
     b+= miss.length?'<div class="verdict fail">還缺：'+miss.join("、")+'。空著會讓 '+st.target+' 筆統計失真。</div>'
       :primary("go","結算",' data-v="1"');
     h+=card("07","出場","MFE / MAE 填價位就好，會自動換算成點數。這兩個數字比損益更重要。",b);
@@ -223,7 +485,7 @@ function viewReview(){
   var d=S.draft,st=S.settings;
   var skip=d.outcome==="skip",score=scoreOf(d),pts=pnlPoints(d);
   var money=pts*st.pointValue-(skip?0:st.costPerRound);
-  var ex=excursions(d),sl=num(d.structSL);
+  var ex=excursions(d),sl=num(d.structSL),pr=postRun(d),hm=heldMins(d);
   var b='<div class="scorebox"><div class="sc"><span>紀律</span><b class="'+(score===100?"full":"cut")+'">'+score+'</b></div>';
   if(!skip)b+='<div class="sc"><span>結果（隨機）</span><b class="mono result">'+(pts>0?"+":"")+pts+' 點</b></div>';
   b+='</div>';
@@ -236,12 +498,15 @@ function viewReview(){
     b+='<div class="rows">'+
       kv("淨損益",(money>0?"+":"")+money.toLocaleString()+" 元")+
       kv("MFE / MAE","+"+(ex.mfe===null?"—":ex.mfe)+" / −"+(ex.mae===null?"—":ex.mae)+" 點")+
+      kv("出場後最遠",pr===null?"—":pr+" 點")+
       kv("用的停損",(sl===null?"—":sl)+" 點")+
-      kv("持倉到",d.exitTime||"—")+'</div>';
+      kv("持倉",hm===null?"—":hm+" 分鐘（"+(d.entryTime||"—")+"→"+(d.exitTime||"—")+"）")+'</div>';
     var sig=[];
-    if(ex.mfe!==null&&ex.mfe>=st.tpPoints&&d.exitType==="tp")sig.push("MFE 達停利：方向抓對，停利設得早不早看 "+st.target+" 筆分佈");
+    var over=pr===null?null:r1(pr-Math.abs(pts));
+    if(d.exitType==="tp"&&over!==null&&over>0)sig.push("停利後又走了 "+over+" 點：方向抓對，停利可能設早了——看 "+st.target+" 筆的分佈再決定");
     if(d.exitType==="sl"&&ex.mfe!==null&&ex.mfe>=st.tpPoints*0.5)sig.push("打停損前先賺過 "+ex.mfe+" 點：方向對，問題在保護機制");
     if(pts>0&&ex.mae!==null&&sl!==null&&ex.mae>sl*0.8)sig.push("贏家但逆行過 "+ex.mae+" 點，逼近停損 "+sl+"：停損再緊一點就殺掉這筆");
+    if(pts>0&&ex.mae!==null&&sl!==null&&ex.mae<sl*0.3)sig.push("贏家只逆行 "+ex.mae+" 點，停損 "+sl+" 用不到一半：多幾筆都這樣就能收緊");
     if(d.exitType==="sl"&&ex.mfe!==null&&ex.mfe<10)sig.push("進場後幾乎沒賺過：可能是追價太遠或假突破");
     sig.forEach(function(s){b+='<div class="verdict pass">'+s+'</div>';});
   }
@@ -259,7 +524,12 @@ function computeStats(){
   var winMae=wins.map(function(x){return x.mae;}).filter(function(v){return v!==null;});
   var lossMfe=losses.map(function(x){return x.mfe;}).filter(function(v){return v!==null;});
   var tpRows=rows.filter(function(x){return x.r.exitType==="tp";});
-  var flew=tpRows.filter(function(x){return x.mfe!==null&&x.mfe>st.tpPoints;});
+  var flew=tpRows.map(function(x){var p=postRun(x.r);return p===null?null:r1(p-st.tpPoints);})
+    .filter(function(v){return v!==null&&v>0;});
+  var holds=rows.map(function(x){return heldMins(x.r);}).filter(function(v){return v!==null&&v>=0;});
+  var slRows=rows.filter(function(x){return x.r.exitType==="sl";});
+  var shakes=slRows.map(function(x){var p=postRun(x.r);return p===null?null:r1(p);})
+    .filter(function(v){return v!==null&&v>0;});
   var maxLose=0,cur=0;
   rows.forEach(function(x){if(x.p<=0){cur++;if(cur>maxLose)maxLose=cur;}else cur=0;});
   var streak=0;
@@ -284,7 +554,11 @@ function computeStats(){
     streak:streak,maxLose:maxLose,
     winMaeMed:median(winMae),winMaeMax:winMae.length?Math.max.apply(null,winMae):null,winMaeN:winMae.length,
     lossMfeMed:median(lossMfe),lossMfeMax:lossMfe.length?Math.max.apply(null,lossMfe):null,lossMfeN:lossMfe.length,
-    flewN:flew.length,tpN:tpRows.length,flewMed:median(flew.map(function(x){return x.mfe;})),
+    flewN:flew.length,tpN:tpRows.length,flewMed:median(flew),
+    flewMax:flew.length?Math.max.apply(null,flew):null,
+    holdMed:median(holds),
+    slN:slRows.length,shakeN:shakes.length,shakeMed:median(shakes),
+    shakeMax:shakes.length?Math.max.apply(null,shakes):null,
     byEdge:byEdge,byExit:byExit};
 }
 
@@ -321,13 +595,31 @@ function viewStats(){
   }
   h+='</section>';
 
+  h+='<section class="panel accent"><div class="ptitle">被洗出去了嗎</div>'+
+    '<p class="pnote">停損之後價格回頭往你原本方向跑，才是停損設錯的證據。繼續往反方向跑代表停損救了你。</p><div class="rows">'+
+    kv("停損出場",s.slN+" 筆")+
+    kv("其中事後回頭",s.shakeN+" 筆")+
+    kv("回頭幅度中位數",s.shakeMed===null?"—":s.shakeMed+" 點")+
+    kv("回頭幅度最大",s.shakeMax===null?"—":s.shakeMax+" 點")+'</div>';
+  if(s.slN>=5){
+    var ratio=s.shakeN/s.slN;
+    h+='<div class="verdict '+(ratio>=0.5?"fail":"pass")+'">'+
+      (ratio>=0.5
+        ? "一半以上的停損事後都回頭了——停損太緊或進場太早，不是運氣問題。"
+        : "多數停損之後價格繼續往反方向走，停損在做它該做的事。")+
+      (s.slN<20?" 樣本 "+s.slN+" 筆，只能當方向參考。":"")+'</div>';
+  }
+  h+='</section>';
+
   h+='<section class="panel accent"><div class="ptitle">停利校準</div>'+
-    '<p class="pnote">停損出場的單子最多有利過幾點？如果常常先賺很多才回頭，問題不在方向，在保護。</p><div class="rows">'+
+    '<p class="pnote">停利成交之後價格還走多遠？走越遠代表停利設越早。另一邊：停損出場的單子最多有利過幾點——常常先賺很多才回頭，問題就不在方向，在保護。</p><div class="rows">'+
+    kv("停利成交筆數",s.tpN+" 筆")+
+    kv("其中出場後還續走",s.flewN+" 筆")+
+    kv("賣飛幅度中位數",s.flewMed===null?"—":s.flewMed+" 點")+
+    kv("賣飛幅度最大",s.flewMax===null?"—":s.flewMax+" 點")+
     kv("輸家 MFE 中位數（"+s.lossMfeN+" 筆）",s.lossMfeMed===null?"—":s.lossMfeMed+" 點")+
     kv("輸家 MFE 最大值",s.lossMfeMax===null?"—":s.lossMfeMax+" 點")+
-    kv("停利成交筆數",s.tpN+" 筆")+
-    kv("其中賣飛（MFE 超過停利）",s.flewN+" 筆")+
-    kv("賣飛時 MFE 中位數",s.flewMed===null?"—":s.flewMed+" 點")+'</div></section>';
+    kv("持倉時長中位數",s.holdMed===null?"—":s.holdMed+" 分鐘")+'</div></section>';
 
   h+='<section class="panel"><div class="ptitle">結果（不代表系統好壞）</div><div class="rows">'+
     kv("實際勝率",s.winRate.toFixed(0)+"%")+
@@ -401,19 +693,19 @@ function viewSet(){
 
 function buildCsv(){
   var st=S.settings;
-  var head="日期,模式,ATR,邊界,方向,邊界價,進場,追價,K棒振幅,停損點數,出場方式,出場價,出場時間,損益點,損益金額,MFE點,MAE點,紀律分,違規,備註";
+  var head="日期,模式,ATR,邊界,方向,邊界價,進場,追價,K棒振幅,停損點數,進場時間,出場方式,出場價,出場時間,持倉分鐘,損益點,損益金額,MFE點,MAE點,出場後最遠點,紀律分,違規,備註";
   var lines=S.records.map(function(r){
-    var p=pnlPoints(r),ex=excursions(r);
+    var p=pnlPoints(r),ex=excursions(r),pr=postRun(r),hm=heldMins(r);
     var edge=EDGES.filter(function(e){return e.k===r.edge;})[0];
     var chase=(num(r.entry)!==null&&num(r.edgePrice)!==null)?Math.abs(num(r.entry)-num(r.edgePrice)):"";
     return [r.date,r.mode,r.atr,edge?edge.l:"",
       r.dir==="long"?"多":(r.dir==="short"?"空":""),
-      r.edgePrice,r.entry,chase,r.barRange,r.structSL,
+      r.edgePrice,r.entry,chase,r.barRange,r.structSL,r.entryTime,
       r.outcome==="skip"?("封盤:"+r.skipReason):r.exitType,
-      r.exitPrice,r.exitTime,
+      r.exitPrice,r.exitTime,hm===null?"":hm,
       r.outcome==="traded"?p:"",
       r.outcome==="traded"?(p*st.pointValue-st.costPerRound):"",
-      ex.mfe===null?"":ex.mfe, ex.mae===null?"":ex.mae,
+      ex.mfe===null?"":ex.mfe, ex.mae===null?"":ex.mae, pr===null?"":pr,
       scoreOf(r),(r.violations||[]).map(function(v){return PENALTY[v].label;}).join(" / "),
       (r.note||"").replace(/[,\n]/g," ")].join(",");
   });
@@ -513,3 +805,23 @@ document.addEventListener("click",function(e){
     render();return;
   }
   if(a==="restore"){
+    try{
+      var o=JSON.parse(S.imp||"");
+      if(!o||!o.records)throw new Error();
+      S.settings=Object.assign({},DEFAULTS,o.settings||{});
+      S.records=o.records;S.settings.lastBackupN=S.records.length;
+      save();S.msg="已還原 "+S.records.length+" 筆。";S.imp="";
+    }catch(err){S.msg="這段不是有效的備份 JSON。";}
+    render();return;
+  }
+  if(a==="clear"){
+    if(confirm("刪掉全部紀錄？先匯出備份再按。")){S.records=[];save();render();}
+    return;
+  }
+});
+
+load();
+render();
+</script>
+</body>
+</html>
